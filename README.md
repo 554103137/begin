@@ -6,9 +6,9 @@
 	var begin = require('begin');
 	
 	begin()
-	  step(function() { doStep1(this) }).
+	  then(function() { doStep1(this) }).
 	  each(function() { return [1, 2, 3] })
-		step(function(i) { doSomethingWithItem(i, this) }).
+		then(function(i) { doSomethingWithItem(i, this) }).
 	  end().
 	  catch(function(err) { console.log("Error: " + err); this(err) })
 	end();
@@ -74,17 +74,17 @@ Where ***blockMethods*** is an object containing DSL methods added to [blocks](#
 	  begin().
 		// Throw is equivalent to this(err) and return of any
 		// non-undefined is equivalent to this(null, result).
-		step(function()	   { if (!dir) throw new Error("dir required");
+		then(function()	   { if (!dir) throw new Error("dir required");
 								return true }).
 		// Each calls the function asynchronously and iterates in parallel
 		each(function()	   { fs.readdir(task.dir, this) }).
-		  step(function()	 { fs.readFile(this.file, 'utf8', this) }).
-		  step(function(data) { return data.split(/\r\n|\r|\n/).length }).
+		  then(function()	 { fs.readFile(this.file, 'utf8', this) }).
+		  then(function(data) { return data.split(/\r\n|\r|\n/).length }).
 		  // Catches errors like when fs.readFile() is called for a directory
 		  catch(function(err) { return 0 }).
 		end().
 		// Each results in an array of results for each file
-		step(function(counts) { var sum = 0;
+		then(function(counts) { var sum = 0;
 								counts.forEach(function(count) { sum += count });
 								return sum }).
 		finally(function(err, total) {
@@ -137,7 +137,7 @@ This is what it looks like implemented with **begin** done in 39 lines of code.
 	  var result = { files:0, lines:{}, total:0, average:null, errors:{} };
 	  begin().
 		each(function() { fs.readdir(dir, this) }).
-		  step(function(name) {
+		  then(function(name) {
 			this.file = path.join(dir, name);
 			fs.stat(this.file, this);
 		  }).
@@ -150,17 +150,17 @@ This is what it looks like implemented with **begin** done in 39 lines of code.
 			else
 			  return true;
 		  }).
-			step(function(stat) { lookupFromCache(stat, this) }).
+			then(function(stat) { lookupFromCache(stat, this) }).
 			if(function(count) { return count < 0 }).
-			  step(function() { fs.readFile(this.file, this) }).
-			  step(function(data) {
+			  then(function() { fs.readFile(this.file, this) }).
+			  then(function(data) {
 				this.count = data.split(/\r\n|\r|\n/).length;
 				saveInCache(this.stat, this.count, this);
 			  }).
 			  get('count').
 			end().
 			catch(function(err) { errors[this.file] = err; return -1 }).
-			step(function(count) {
+			then(function(count) {
 			  if (count > 0)
 				total += lines[this.file] = count; 
 			  result.files++;
@@ -168,7 +168,7 @@ This is what it looks like implemented with **begin** done in 39 lines of code.
 			}).
 		  end().
 		end().
-		step(function() {
+		then(function() {
 		  result.average = result.files > 0 ? result.total / result.files : 0;
 		  return result;
 		}).
@@ -256,7 +256,7 @@ The primary issue with using **async**, however, is the same issue when writing 
 * Supports synchronous and asynchronous statements
 * Supports the following 
   * `begin()`…`end()` blocks of steps
-  * `step()` statements
+  * `then()` statements
   * `if()`…`elseif()`...`else()`...`end()` conditionals 
   * `catch()` and `finally()` error handling
   * `split()` for parallel steps
@@ -280,17 +280,17 @@ The primary issue with using **async**, however, is the same issue when writing 
 ### Supporting Cancellation
 
     var block = begin().
-      step(function() {
+      then(function() {
       	var timer = setTimeout(this, 60e3);
       	this.cancel = function() {
       	  clearInterval(timer);
       	  return true;
       	};
       }).
-      step(function() {
+      then(function() {
         var anotherTimer = setTimeout(this, 60e3);
       }).
-      step(function() {
+      then(function() {
       	console.log("Done");
       	return true;
       }).
@@ -336,10 +336,10 @@ If you set the `cancel` function on `this`, the function will be used to cancel 
 ### How node-begin works
 
 	begin().
-	  step(function() {
+	  then(function() {
 		fs.readFile('./greeting.txt', 'utf8', this);
 	  }).
-	  step(function(greeting) {
+	  then(function(greeting) {
 		if (greeting.length == 0)
 		  throw new Error("No greeting");
 		return greeting;
@@ -369,13 +369,13 @@ allows you to bring initial synchronous code, such as setting initial state, ins
 	function doSomeWork(file, callback) {
 	  var self = this;
 	  begin().
-		step(function() {
+		then(function() {
 		  if (self.status === 'working')
 			throw new Error('Already working');
 		  self.status = 'working';
 		  fs.readFile(file, this)
 		}).
-		step(function(data) {
+		then(function(data) {
 		  self.processData(data, this)
 		}).
 		finally(function() {
@@ -397,7 +397,7 @@ inside the first step. Since it is synchronous, it gets evaluated before `doSome
 Occasionally, you may want to limit the amount of time a **begin** evaluates. You can create a timeout on a **begin** using the `timeout` option, specifying the milliseconds after which the entire **begin** produces an error.
 
 	begin(null, {timeout:1000}).
-	  step(function() { doIt(this) }).
+	  then(function() { doIt(this) }).
 	end(callback);
 
 In this example, if `doIt(…)` step takes more than one second, the step results in an error, forwarding the error to `callback`.
@@ -407,7 +407,7 @@ You may additionally want to programmatically cancel a **begin** regardless of t
 	function doSomeWork(callback) {
 	  var self = this;
 	  this.work = begin().
-		step(function() {
+		then(function() {
 		  doIt(this);
 		  this.cancel = function() { stopIt(this) };
 		}).
@@ -428,7 +428,7 @@ If you already use underscore.js throughout your project, node-begin extends
 underscore with a `begin()` function so that you can write your begins like this:
 
 	_.begin().
-	  step(function() { ... }).
+	  then(function() { ... }).
 	end();
   
 This way, you'll  only have to `require('begin')` just once in your project to make it available to all of your modules. 
@@ -439,12 +439,12 @@ Often times when writing asynchronous functions, you want to pass around state
 but end up writing a lot of glue just to pass along a variable.
 
   _.begin().
-	  step(function() { getFile(this) }).
-	  step(function(file) {
+	  then(function() { getFile(this) }).
+	  then(function(file) {
 		var callback = this;
 		fs.stat(file, function(err, stat) { callback(err, file, stat) });
 	  }).
-	  step(function(file, stat) {
+	  then(function(file, stat) {
 		if (!stat.exists) 
 		  throw new Error("File, '" + file + "' doesn't exist");
 		return file;
@@ -455,12 +455,12 @@ Instead, you can add any property you'd like to `this` which will be available
 to all subsequent functions. The above begin can be instead written as:
 
 	_.begin().
-	  step(function() { getFile(this) }).
-	  step(function(file) {
+	  then(function() { getFile(this) }).
+	  then(function(file) {
 		this.file = file;
 		fs.stat(this.file, this);
 	  }).
-	  step(function(stat) {
+	  then(function(stat) {
 		if (!stat.exists) 
 		  throw new Error("File, '" + this.file + "' doesn't exist");
 		return this.file;
@@ -471,12 +471,12 @@ There are also `set` and `get` steps that allow you to work with context
 variables. 
 
 	_.begin().
-	  step(function() { getFile(this) }).
+	  then(function() { getFile(this) }).
 	  set('file').
-	  step(function(file) {
+	  then(function(file) {
 		fs.stat(this.file, this);
 	  }).
-	  step(function(stat) {
+	  then(function(stat) {
 		if (!stat.exists) 
 		  throw new Error("File, '" + this.file + "' doesn't exist");
 		return this.file;
@@ -493,24 +493,24 @@ THis a
 	
 	begin().
 	  // Read in list of files from file-list.txt
-	  step(function() { fs.readFile('./file-list.txt', 'utf8', this) }).
+	  then(function() { fs.readFile('./file-list.txt', 'utf8', this) }).
 	  // Each line is the name of a directory
 	  each(function(data) { return data.split(/\r\n|\n/) }).
 		// List the directory
 		each(function(dir, i) { fs.readdir(dir, this) }).
-		  step(function(file) { if ( }).
+		  then(function(file) { if ( }).
 		end().
-		step(function() {
+		then(function() {
 		  for (var i = 0, ic = arguments.length; i < ic; i++)
 			
 		}).
 	  
-	  step(function(data) {  }).
+	  then(function(data) {  }).
 	  each(function(data) { return data.split(/\r\n|\n/) }).
-		step(function(line, i) { fs.readFile(line, this) }).
+		then(function(line, i) { fs.readFile(line, this) }).
 		
 	  end().
-	  step(function() { ... }).
+	  then(function() { ... }).
 	  catch(function() { ... }).
 	end(callback);
 
@@ -542,26 +542,26 @@ A call to `each()` should be followed by DSL-declared block and balanced with an
 The result of `each()` is an array of results. If the block results in multiple return values, they are grouped as an array. For example:
 	
 	each([1, 2, 3]).
-	  step(function(x) { this(null, x*2) }).
+	  then(function(x) { this(null, x*2) }).
 	end().
-	step(function(result) { console.log(JSON.stringify(result)) })
+	then(function(result) { console.log(JSON.stringify(result)) })
 	// => [2,4,6]
 
 	each([1, 2, 3]).
-	  step(function(x) { this(null, x*2, x*2 + 1) }).
+	  then(function(x) { this(null, x*2, x*2 + 1) }).
 	end().
-	step(function(result) { console.log(JSON.stringify(result)) })
+	then(function(result) { console.log(JSON.stringify(result)) })
 	// => [[2,3],[4,5],[6,7]]
 
 	each([1, 2, 3]).
-	  step(function(x) { if ((x % 2) == 0) return x; else this(null, x, x*x); }).
+	  then(function(x) { if ((x % 2) == 0) return x; else this(null, x, x*x); }).
 	end().
-	step(function(result) { console.log(JSON.stringify(result)) })
+	then(function(result) { console.log(JSON.stringify(result)) })
 	// => [[1,1],2,[3,9]]
 
-### <a id="step"></a> step(*func*)
+### <a id="step"></a> then(*func*)
 
-	step(function(..) { .. })
+	then(function(..) { .. })
 
 Step statements are executed sequentially. This function follows rules of all step functions:
 
@@ -585,10 +585,10 @@ Blocks group a set of statements and executes them sequentially, passing the res
 [finally()](#finally) statements are always evaluated in order, regardless of whether an error has occurred or not. For example, 
 
 	begin().
-	  step(function()	   { console.log('step A'); return true }).
+	  then(function()	   { console.log('step A'); return true }).
 	  finally(function()	{ console.log('finally 1'); return true }).
-	  step(function()	   { throw Error() }).
-	  step(function()	   { console.log('step B'); return true }).
+	  then(function()	   { throw Error() }).
+	  then(function()	   { console.log('step B'); return true }).
 	  finally(function()	{ console.log('finally 2'); return true }).
 	  catch(function(error) { console.log('catch/throw C'); this(error) })
 	  finally(function()	{ console.log('finally 3'); return true }).
@@ -621,13 +621,35 @@ If you provide [end()](#block) with a *callback* function, it is executed as if 
 	 }
 
 
+### <a id="stream"></a> stream(*func*)…end()
+
+	stream({}, function() { return stream; }).
+	  then(function() { … }).
+	  then(function() { … }).
+	end()
+
+Streams iterate over data items in an event stream. By default, streams observe the events 'data', 'error' and 'close'.   
+
+### Cancelling
+
+	then(function() {
+	  var timer = setTimeout(this, 60e3, null, "test");
+	  this.onCancel(function() {
+	    clearTimeout(timer);
+	    return null;
+	  });
+	})
+
+The cancel function provides a mechanism to cancel the current step. A block may be cancelled at any time.
+
+
 ### <a id="pipeline"></a> pipeline(*func*)…end()
 
 	pipeline(function() { return array }).
-	  step(function() { … }).
-	  step(function() { … }).
-	  step(function() { … }).
-	  step(function() { … }).
+	  then(function() { … }).
+	  then(function() { … }).
+	  then(function() { … }).
+	  then(function() { … }).
 	end()
 
 Pipelined block works just like [each()](#each), evaluating a block over each entry in an array or object, except  

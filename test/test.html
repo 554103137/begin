@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>begin tests</title>
+  <link rel="stylesheet" media="all" href="https://cdnjs.cloudflare.com/ajax/libs/mocha/2.2.4/mocha.min.css">
+</head>
+<body>
+  <div id="mocha"><p><a href=".">Index</a></p></div>
+  <div id="messages"></div>
+  <div id="fixtures"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mocha/2.2.4/mocha.min.js"></script>
+  
+  <script src="../lib/begin.js"></script>
+  <script src="../lib/begin-trace.js"></script>
+  
+  <script src="../node_modules/chai/chai.js"></script>
+  <script src="./test-utils.js"></script>
+  <script>mocha.setup('bdd')</script>
+  <script src="./begin-test.js"></script>
+  <script src="./begin-call-test.js"></script>
+  <script src="./begin-api-test.js"></script>
+  <script src="./begin-block-test.js"></script>
+  <script src="./begin-cache-test.js"></script>
+  <script src="./begin-case-test.js"></script>
+  <script src="./begin-each-test.js"></script>
+  <script src="./begin-errors-test.js"></script>
+  <script src="./begin-events-test.js"></script>
+  <script src="./begin-get-set-test.js"></script>
+  <script src="./begin-hook-test.js"></script>
+  <script src="./begin-if-test.js"></script>
+  <script src="./begin-map-reduce-test.js"></script>
+  <script src="./begin-performance-test.js"></script>
+  <script src="./begin-poll-test.js"></script>
+  <script src="./begin-split-test.js"></script>
+  <script src="./begin-step-test.js"></script>
+  <script src="./begin-sync-test.js"></script>
+  <script src="./begin-trace-test.js"></script>
+  <script src="./begin-wait-test.js"></script>
+  <script src="./begin-while-test.js"></script>
+  <script src="./promise-test.js"></script>
+  <script>mocha.run();</script>
+</body>
+</html>

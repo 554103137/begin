@@ -5,10 +5,11 @@
  * @see   http://nodejs.org/docs/v0.4.8/api/assert.html
  */
 
-var assert = require('assert');
-
-var begin = require('../lib/begin.js');
-var utils = require('./test-utils.js');
+var begin = typeof(begin) !== 'undefined' ? begin : require('../lib/begin.js');
+var utils = typeof(utils) !== 'undefined' ? utils : require('./test-utils.js');
+var chai = typeof(chai) !== 'undefined' ? chai : require('chai'),
+    expect = chai.expect,
+    assert = chai.assert;
 
 if (false)
 require('ec/lib/debug').
@@ -35,35 +36,35 @@ describe("begin.Step", function() {
     
       it("should work with synchronous return 1", function(done) {
         begin().
-          step(function() {
+          then(function() {
             return 1;
           }).
         end(utils.checkEqual(done, 1));
       });
       it("should work with synchronous this(1)", function(done) {
         begin().
-          step(function() {
+          then(function() {
             this(null, 1);
           }).
         end(utils.checkEqual(done, 1));
       });
       it("should work with synchronous this(1, 2, 3)", function(done) {
         begin().
-          step(function() {
+          then(function() {
             this(null, 1, 2, 3);
           }).
         end(utils.checkEqual(done, [1, 2, 3]));
       });
       it("should work with synchronous throw error", function(done) {
         begin().
-          step(function() {
+          then(function() {
             throw new Error('ERROR');
           }).
         end(utils.checkThrows(done));
       });
       it("should work with synchronous this(error)", function(done) {
         begin().
-          step(function() {
+          then(function() {
             this(new Error('ERROR'));
           }).
         end(utils.checkThrows(done));
@@ -75,27 +76,27 @@ describe("begin.Step", function() {
     
       it("should work with asynchronous this(1)", function(done) {
         begin().
-          step(function() {
-            var step = this;
-            process.nextTick(function() {
-              step(null, 1);
+          then(function() {
+            var next = this;
+            utils.nextTick(function() {
+              next(null, 1);
             });
           }).
         end(utils.checkEqual(done, 1));
       });
       it("should work with asynchronous this(1, 2, 3)", function(done) {
         begin().
-          step(function() {
-            process.nextTick(this.bind(null, null, 1, 2, 3));
+          then(function() {
+            utils.nextTick(this.bind(null, null, 1, 2, 3));
           }).
         end(utils.checkEqual(done, [1, 2, 3]));
       });
       it("should work with asynchronous this(error)", function(done) {
         begin().
-          step(function() {
-            var step = this;
-            process.nextTick(function() {
-              step(new Error('ERROR'));
+          then(function() {
+            var next = this;
+            utils.nextTick(function() {
+              next(new Error('ERROR'));
             });
           }).
         end(utils.checkThrows(done));
@@ -107,10 +108,10 @@ describe("begin.Step", function() {
       
       it("should pass along values", function(done) {
         begin().
-          step(function() {
+          then(function() {
             return 1;
           }).
-          step(function(x) {
+          then(function(x) {
             assert.equal(x, 1);
             return x;
           }).
@@ -118,16 +119,16 @@ describe("begin.Step", function() {
       });
       it("should pass along values in a chain", function(done) {
         begin().
-          step(function() {
+          then(function() {
             return 1;
           }).
-          step(function(x) {
+          then(function(x) {
             return x + 2;
           }).
-          step(function(x) {
+          then(function(x) {
             return x + 3;
           }).
-          step(function(x) {
+          then(function(x) {
             assert.equal(x, 6);
             return x;
           }).

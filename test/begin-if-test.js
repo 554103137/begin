@@ -5,10 +5,11 @@
  * @see   http://nodejs.org/docs/v0.4.8/api/assert.html
  */
 
-var assert = require('assert');
-
-var begin = require('../lib/begin.js');
-var utils = require('./test-utils.js');
+var begin = typeof(begin) !== 'undefined' ? begin : require('../lib/begin.js');
+var utils = typeof(utils) !== 'undefined' ? utils : require('./test-utils.js');
+var chai = typeof(chai) !== 'undefined' ? chai : require('chai'),
+    expect = chai.expect,
+    assert = chai.assert;
 
 describe("begin.If", function() {
 
@@ -17,9 +18,9 @@ describe("begin.If", function() {
     it("should work with if-clause", function(done) {
       begin().
         if(function() { return true }).
-          step(function() { return 'yes' }).
+          then(function() { return 'yes' }).
         else().
-          step(function() { return 'no' }).
+          then(function() { return 'no' }).
         end().
       end(utils.checkEqual(done, 'yes'));
     });
@@ -27,9 +28,9 @@ describe("begin.If", function() {
     it("should work with if-else", function(done) {
       begin().
         if(function() { return false }).
-          step(function() { return 'yes' }).
+          then(function() { return 'yes' }).
         else().
-          step(function() { return 'no' }).
+          then(function() { return 'no' }).
         end().
       end(utils.checkEqual(done, 'no'));
     });
@@ -37,11 +38,11 @@ describe("begin.If", function() {
     it("should work with if-elseif", function(done) {
       begin().
         if(function() { return false }).
-          step(function() { return 'yes' }).
+          then(function() { return 'yes' }).
         elseif(function() { return true }).
-          step(function() { return 'no' }).
+          then(function() { return 'no' }).
         else().
-          step(function() { return 'maybe' }).
+          then(function() { return 'maybe' }).
         end().
       end(utils.checkEqual(done, 'no'));
     });
@@ -53,7 +54,7 @@ describe("begin.If", function() {
             if(function() { return true }).
               if(function() { return true }).
                 if(function() { return true }).
-                  step(function() { return 'yes' }).
+                  then(function() { return 'yes' }).
                 end().
               end().
             end().
@@ -63,7 +64,7 @@ describe("begin.If", function() {
             if(function() { return true }).
               if(function() { return true }).
                 if(function() { return true }).
-                  step(function() { return 'no' }).
+                  then(function() { return 'no' }).
                 end().
               end().
             end().

@@ -5,33 +5,34 @@
  * @see   http://nodejs.org/docs/v0.4.8/api/assert.html
  */
 
-var assert = require('assert');
+var begin = typeof(begin) !== 'undefined' ? begin : require('../lib/begin.js');
+var utils = typeof(utils) !== 'undefined' ? utils : require('./test-utils.js');
+var chai = typeof(chai) !== 'undefined' ? chai : require('chai'),
+    expect = chai.expect,
+    assert = chai.assert;
 
-var begin = require('../lib/begin.js');
-var utils = require('./test-utils.js');
-
-describe("begin.Bock", function() {
+describe("begin.Block", function() {
 
   describe("Block steps", function() {
   
     it("works with an four-step synchronous success flow", function(done) {
       begin().
-        step(function() { this(null, 1) }).
-        step(function(x) { this(null, x + 1) }).
-        step(function(x) { this(null, x + 1) }).
-        step(function(x) { this(null, x + 1) }).
+        then(function() { this(null, 1) }).
+        then(function(x) { this(null, x + 1) }).
+        then(function(x) { this(null, x + 1) }).
+        then(function(x) { this(null, x + 1) }).
       end(utils.checkEqual(done, [4]));
     });
     it("works with an nested block synchronous success flow", function(done) {
       begin().
-        step(function() { this(null, 1) }).
+        then(function() { this(null, 1) }).
         begin().
-          step(function(x) { this(null, x + 10) }).
-          step(function(x) { this(null, x + 100) }).
-          step(function(x) { this(null, x + 1000) }).
+          then(function(x) { this(null, x + 10) }).
+          then(function(x) { this(null, x + 100) }).
+          then(function(x) { this(null, x + 1000) }).
         end().
-        step(function(x) { this(null, x + 10000) }).
-        step(function(x) { this(null, x + 100000) }).
+        then(function(x) { this(null, x + 10000) }).
+        then(function(x) { this(null, x + 100000) }).
       end(utils.checkEqual(done, [111111]));
     });
     
@@ -50,7 +51,7 @@ describe("begin.Bock", function() {
       it("should support return finally()", function(done) {
         var events = [];
         begin().
-          step(function() {       events.push('step:a'); return 'A' }).
+          then(function() {       events.push('step:a'); return 'A' }).
           finally(function(e,x) { events.push(fevent(e, x)); this(e, x) }).
           finally(function(e,x) { return events.join(' | ') }).
         end(utils.checkEqual(done, 'step:a | finally:e=,x=A'));
@@ -58,19 +59,19 @@ describe("begin.Bock", function() {
       it("should support step-finally-step", function(done) {
         var events = [];
         begin().
-          step(function() {       events.push('step:a'); return 'A' }).
+          then(function() {       events.push('step:a'); return 'A' }).
           finally(function(e,x) { events.push(fevent(e, x)); this(e, x) }).
-          step(function() {       events.push('step:b'); return 'A' }).
+          then(function() {       events.push('step:b'); return 'A' }).
           finally(function() {    return events.join(' | ') }).
         end(utils.checkEqual(done, 'step:a | finally:e=,x=A | step:b'));
       });
       it("should support step-throw-finally-step", function(done) {
         var events = [];
         begin().
-          step(function() {       events.push('step:a'); return 'A' }).
-          step(function(x) {      events.push('step:b'); throw x + 'B'  }).
+          then(function() {       events.push('step:a'); return 'A' }).
+          then(function(x) {      events.push('step:b'); throw x + 'B'  }).
           finally(function(e,x) { events.push(fevent(e, x)); return e + 'C' }).
-          step(function(x) {      events.push('step:c'); return x + 'D' }).
+          then(function(x) {      events.push('step:c'); return x + 'D' }).
           finally(function() {    return events.join(' | ') }).
         end(utils.checkEqual(done, 'step:a | step:b | finally:e=AB,x= | step:c'));
       });
@@ -89,38 +90,38 @@ describe("begin.Bock", function() {
       it("should catch a synchronous callback error", function(done) {
         var events = [];
         begin().
-          step(function() {       events.push('step:a'); this('ERROR') }).
+          then(function() {       events.push('step:a'); this('ERROR') }).
           catch(function(err) {   events.push('catch:b'); this(err + '-A') }).
-          step(function() {       events.push('step:c'); this(null) }).
+          then(function() {       events.push('step:c'); this(null) }).
           finally(function(e,x) { return events.join(' | ') + ' => ' + x }).
         end(utils.checkEqual(done, 'step:a | catch:b => undefined'));
       });
       it("should catch a synchronous thrown error", function(done) {
         var events = [];
         begin().
-          step(function() {       events.push('step:a'); this('ERROR') }).
+          then(function() {       events.push('step:a'); this('ERROR') }).
           catch(function(err) {   events.push('catch:b'); throw err + '-A' }).
           finally(function(e,x) { return events.join(' | ') + ' => ' + x }).
-        end(utils.checkEqual(done, 'step:a | catch:b => undefined'));
+        end(utils.checkEqual(done, 'step:a | catch:b => null'));
       });
       it("should catch an asynchronous error", function(done) {
         begin().
-          step(function() { var step = this; setTimeout(function() { step('ERROR') }, 10) }).
+          then(function() { var step = this; setTimeout(function() { step('ERROR') }, 10) }).
           catch(function(err) { return err }).
         end(utils.checkEqual(done, ['ERROR']));
       });
       it("should support catch chains", function(done) {
         var events = [];
         begin().
-          step(function() {     events.push('step:a'); this('ERROR') }).
+          then(function() {      events.push('step:a'); this('ERROR') }).
           catch(function(err) { events.push('catch:b'); this(err + '-1') }).
-          step(function(x) {     events.push('step:b'); return x + '-2' }).
+          then(function(x) {     events.push('step:b'); return x + '-2' }).
           catch(function(err) { events.push('catch:c'); this(err + '-3') }).
-          step(function(x) {     events.push('step:c'); return x + '-4' }).
+          then(function(x) {     events.push('step:c'); return x + '-4' }).
           catch(function(err) { events.push('catch:d'); this(null,err+'-5') }).
-          step(function(x) {     events.push('step:d'); return x + '-6' }).
+          then(function(x) {     events.push('step:d'); return x + '-6' }).
           catch(function(err) { events.push('catch:e'); return err + '-7' }).
-          step(function(x) {     events.push('step:e'); return x + '-8' }).
+          then(function(x) {     events.push('step:e'); return x + '-8' }).
           finally(function(e,x) { return events.join(' | ') + ' => ' + x }).
         end(utils.checkEqual(done, 'step:a | catch:b | catch:c | catch:d | step:d | step:e => ERROR-1-3-5-6-8'));
       });

@@ -5,15 +5,10 @@
  * @see   http://nodejs.org/docs/v0.4.8/api/assert.html
  */
 
-var assert = require('assert');
-var ec = require('ec'), _ = ec._, log = ec.log;
-
-var begin = require('../lib/begin.js');
-
-require('ec/lib/debug').
-//  trace(SomeClass).
-//  trace(require('../lib/some_file.js')).
-  toString();
+// var assert = require('assert');
+var begin = typeof(begin) !== 'undefined' ? begin : require('../lib/begin.js');
+var chai = typeof(chai) !== 'undefined' ? chai : require('chai'),
+    expect = chai.expect;
 
 describe("Begin", function() {
 
@@ -21,7 +16,7 @@ describe("Begin", function() {
     
     it("should work", function() {
       var block = new begin.Block();
-      log('info', "Block: %s", block);
+      // log('info', "Block: %s", block);
     });
     
   });
@@ -30,16 +25,24 @@ describe("Begin", function() {
     
     it("can run one step", function(done) {
       begin().
-        step(function() { return 1 }).
-        step(function(x) { return x + 2 }).
-        step(function(x) { return x + 3 }).
+        then(function() { return 1 }).
+        then(function(x) { return x + 2 }).
+        then(function(x) { return x + 3 }).
       end(function(err, result) {
-        if (!err && result !== 6) {
-          log('info', "Args: #yl[%s]", arguments);
-          err = new Error("Result should've been 6 but was " + result);
-        }
+        // console.log("err=" + err + ", result=" + result);
+        chai.expect(result).to.equal(6);
+//         if (!err && result !== 5) {
+//           // log('info', "Args: #yl[%s]", arguments);
+//           err = new Error("Result should've been 6 but was " + result);
+//         }
         done(err);
       });
+    });
+    
+    it("can work as a promise creator", function() {
+      var promise = begin().
+        then(function(x) { return x + 1 }).
+      end();
     });
     
   });

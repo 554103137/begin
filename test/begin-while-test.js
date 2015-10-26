@@ -5,10 +5,11 @@
  * @see   http://nodejs.org/docs/v0.4.8/api/assert.html
  */
 
-var assert = require('assert');
-
-var begin = require('../lib/begin.js');
-var utils = require('./test-utils.js');
+var begin = typeof(begin) !== 'undefined' ? begin : require('../lib/begin.js');
+var utils = typeof(utils) !== 'undefined' ? utils : require('./test-utils.js');
+var chai = typeof(chai) !== 'undefined' ? chai : require('chai'),
+    expect = chai.expect,
+    assert = chai.assert;
 
 describe("begin.While", function() {
 
@@ -16,9 +17,9 @@ describe("begin.While", function() {
     
     it("should work with noop while()", function(done) {
       begin().
-        step(function() { return 'yes' }).
+        then(function() { return 'yes' }).
         while(function() { return false }).
-          step(function() { return 'no' }).
+          then(function() { return 'no' }).
         end().
       end(utils.checkEqual(done, 'yes'));
     });
@@ -26,10 +27,20 @@ describe("begin.While", function() {
       var x = 0;
       begin().
         while(function() { return x < 10; }).
-          step(function() { x += 1; return null }).
+          then(function() { x += 1; return null }).
         end().
-        step(function() { return x }).
+        then(function() { return x }).
       end(utils.checkEqual(done, 10 ));
+    });
+
+    it("should work with looped exception", function(done) {
+      var x = 0;
+      begin().
+        while(function() { return x < 10; }).
+          then(function() { x += 1; throw new Error("HERE"); }).
+        end().
+        then(function() { return x }).
+      end(utils.checkThrows(done, "should thrown in while()"));
     });
     
   });

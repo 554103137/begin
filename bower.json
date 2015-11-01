@@ -1,0 +1,24 @@
+{
+  "name": "begin",
+  "version": "0.2.0",
+  "homepage": "https://github.com/kloshih/begin",
+  "authors": [
+    "Lo Shih <kloshih@gmail.com>"
+  ],
+  "description": "Asynchronous flow control",
+  "main": "./lib/begin.js",
+  "moduleType": [
+    "es6"
+  ],
+  "keywords": [
+    "async"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}

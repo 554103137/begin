@@ -37,8 +37,8 @@ module.exports = function(grunt) {
       },
       my_target: {
         files: {
-          'begin.min.js': ['lib/begin.js'],
-          'begin-trace.min.js': ['lib/begin-trace.js']
+          'min/begin.min.js': ['begin.js'],
+          'min/begin-trace.min.js': ['begin-trace.js']
         },
       }
     },

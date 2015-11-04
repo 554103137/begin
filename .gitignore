@@ -8,6 +8,7 @@ lib-cov
 *.gz
 *.xcodeproj
 
+node_modules
 pids
 logs
 results

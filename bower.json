@@ -1,6 +1,6 @@
 {
   "name": "begin",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "homepage": "https://github.com/kloshih/begin",
   "authors": [
     "Lo Shih <kloshih@gmail.com>"
@@ -19,6 +19,8 @@
     "node_modules",
     "bower_components",
     "test",
-    "tests"
+    "tests",
+    "Gruntfilt.js",
+    "package.json"
   ]
 }

@@ -5,7 +5,7 @@
  * @see   http://nodejs.org/docs/v0.4.8/api/assert.html
  */
 
-var begin = typeof(begin) !== 'undefined' ? begin : require('../lib/begin.js');
+var begin = typeof(begin) !== 'undefined' ? begin : require('../begin.js');
 var chai = typeof(chai) !== 'undefined' ? chai : require('chai'),
     expect = chai.expect,
     assert = chai.assert;

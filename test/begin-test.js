@@ -6,7 +6,7 @@
  */
 
 // var assert = require('assert');
-var begin = typeof(begin) !== 'undefined' ? begin : require('../lib/begin.js');
+var begin = typeof(begin) !== 'undefined' ? begin : require('../begin.js');
 var chai = typeof(chai) !== 'undefined' ? chai : require('chai'),
     expect = chai.expect;
 

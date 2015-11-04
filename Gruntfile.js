@@ -11,7 +11,7 @@ module.exports = function(grunt) {
       },
       build: {
         src: 'src/<%= pkg.name %>.js',
-        dest: 'build/<%= pkg.name %>.min.js'
+        dist: 'build/<%= pkg.name %>.min.js'
       }
     },
     
@@ -32,12 +32,14 @@ module.exports = function(grunt) {
     uglify: {
       options: {
         banner: '/*! <%= pkg.name %> - v<%= pkg.version %> - ' +
-          '<%= grunt.template.today("yyyy-mm-dd") %> */'
+          '<%= grunt.template.today("yyyy-mm-dd") %> */',
+        sourceMap: true,
       },
       my_target: {
         files: {
-          'dest/begin.min.js': ['lib/begin.js']
-        }
+          'begin.min.js': ['lib/begin.js'],
+          'begin-trace.min.js': ['lib/begin-trace.js']
+        },
       }
     },
     

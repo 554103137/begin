@@ -5,12 +5,12 @@
  * @see   http://nodejs.org/docs/v0.4.8/api/assert.html
  */
 
-var begin = typeof(begin) !== 'undefined' ? begin : require('../lib/begin.js');
+var begin = typeof(begin) !== 'undefined' ? begin : require('../begin.js');
 var utils = typeof(utils) !== 'undefined' ? utils : require('./test-utils.js');
 var chai = typeof(chai) !== 'undefined' ? chai : require('chai'),
     expect = chai.expect,
     assert = chai.assert;
-var Trace = typeof(begin.Trace) !== 'undefined' ? begin.Trace : require('../lib/begin-trace.js');
+var Trace = typeof(begin.Trace) !== 'undefined' ? begin.Trace : require('../begin-trace.js');
 
 describe("begin.Hook.Trace", function() {
 

@@ -1,8 +1,9 @@
 
 # begin
 
-**begin** is a small yet powerful asynchronous flow control library. 
+**begin** is a small yet powerful asynchronous flow control library for node and browsers.
 
+```js
 	var begin = require('begin');
 	
 	begin()
@@ -12,6 +13,93 @@
 	  end().
 	  catch(function(err) { console.log("Error: " + err); this(err) })
 	end();
+  
+```js
+
+    var begin = require('begin');
+    var path = require('path');
+    var StringDecoder = require('string_decoder').StringDecoder;
+
+    function countLinesInDirectory(dir, callback) {
+      var lineCounts = {};
+      var queue = [dir];
+      return begin().
+      
+        // Pop the next directory in the queue
+        while(function() { return this.dir = queue.shift() }).
+        
+          // Read the directory 
+          each(function() { fs.readdir(this.dir, this) }).
+          
+            then(function(name) {
+              this.name = name;
+              this.file = path.join(this.dir, this.name);
+              fs.stat(this.file, this);
+            }).
+            
+            case().
+            
+              /* If this is a directory, then queue the directory */
+              when(function() { return this.stat.isDirectory }).
+                then(function() {
+                  queue.push(this.file);
+                  return null;
+                }).
+              
+              /* If this is a file, stream and count the lines */
+              when(function() { return this.stat.isFile }).
+                then(function() {
+                  return countLinesInFile(this.file);
+                }).
+                then(function(lineCount) {
+                  lineCounts[this.filePath] = lineCount;
+                  return null;
+                }).
+                
+            end().            
+            
+            catch(function(err) {
+              if (err.code === 'EACCES')
+                this(null);
+              else
+                this(err);
+            }).
+            
+          end().
+          
+        end().
+        
+      end(callback);
+    }
+    
+    function countLinesInFile(file, callback) {
+      var lineCount = 0;
+      var buffer = '';
+      var decoder = new StringDecoder('utf8');
+      return begin().
+        stream(function() { return fs.createReadStream(file, {encoding:'utf8'}) }).
+          then(function(data) {
+            buffer += decoder.write(data);
+            var parts = buffer.split(/\r?\n/);
+            buffer = parts.pop();
+            lineCount += parts.lenght;
+            return null;
+          }).
+        end().
+        then(function() {
+          if (buffer)
+            lineCount++;
+          return lineCount;
+        }).
+      end();
+    }
+    
+    countLinesInDirectory('/tmp')
+      .then(function(lineCounts) {
+        console.log(lineCounts);
+      });
+      
+```
 	
 ### <a id="plugin"></a> Plugins
 	

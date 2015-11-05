@@ -86,11 +86,13 @@
   
   /** @method Call#toString */
   Call.prototype.toString = function() {
+  /** @method Call#toString */
+  Call.prototype.toString = function() {
     return this.constructor.name + "(error:" + this.error + ",params:" + this.params.join(',') + (this.subcalls ? ",subcalls=" + this.subcalls.length : "") + ")";
   };
 
   /** Runs the call. Set the error, params and context prior to calling run.
-   *  
+   *
    *  @param  {function} callback The callback function ({function(err,..)})
    *  @since  1.0
    *  @method begin.Call#run
@@ -108,13 +110,80 @@
 hook && hook.emit('onBeginCall', this);
     this.block.run(this, function() {
       self.status = 'done';
+      if (self.error === 'cancel')
+        // console.log("Call.run(): clearing 'cancel' error"),
+        self.error = null;
+      if (self.error === 'return' && !('index' in self))
+        self.error = null;
 hook && hook.emit('onEndCall', self);
       callback && callback();
     });
   };
 
+  /** Cancels the call
+   *
+   *  @param  cancelError The cancel error (optional)
+   *  @param  callback Called when cancellation is complete (function(err))
+   */
+  Call.prototype.cancel = function(cancelError, callback) {
+    /* cancelError will be passed to original caller in Root.end(). */
+    this.cancelError = cancelError;
+    var latch = false, replier = this.replier;
+    function done(err) {
+      if (latch)
+        return;
+      latch = true;
+      if (replier)
+        replier('cancel')
+      callback && callback(err);
+    }
+    if (replier && replier.cancel) {
+      var cancel = replier.cancel;
+      if (isThenable(cancel)) {
+        cancel
+          .then(function(value) { done() })
+          .catch(done);
+      } else if (typeof(cancel) === 'function') {
+        try {
+          // console.log("Call.cancel(): calling cancel function: " + cancel);
+          cancel();
+          done();
+        } catch(err) {
+          done(err);
+        }
+      } else {
+        done();
+      }
+    } else if (this.subcalls) {
+      /* If there's no replier, the call is either complete or a subcall is in
+       * progress. Ask each subcall to cancel. */
+      var subcalls = this.subcalls;
+      var inCount = subcalls.length, outCount = 0;
+      var errs;
+      for (var i = 0; i < inCount; i++) {
+        (function(i) {
+          var subcall = subcalls[i];
+          subcall.cancel(null, function(err) {
+            if (err)
+              (errs || (errs = [])).push(err);
+            if (++outCount === inCount) {
+              if (errs) {
+                var err = errs.shift();
+                err.errors = errs;
+                err.message += " (" + errs.join('; ') + ")";
+                done(err);
+              } else {
+                done();
+              }
+            }
+          });
+        })(i);
+      }
+    }
+  };
+
   /** Sets the *error* and *params*.
-   *  
+   *
    *  @param  error {error} The error (optional)
    *  @param  params {array} The parameters (optional)
    *  @return this
@@ -131,7 +200,7 @@ hook && hook.emit('onEndCall', self);
         this.params[i] = params[i];
     }
   };
- 
+
   Call.prototype.setParams = function() {
     this.params.length = arguments.length;
     for (var i = arguments.length; i--; )
@@ -169,11 +238,11 @@ hook && hook.emit('onBeginSubcall', this, subcall);
     this.subcalls[subcall.index] = null;
 hook && hook.emit('onEndSubcall', this, subcall);
   };
-  
+
   /** Commits the call specifically for subcalls after all subcalls are
    *  completed. It aggregates errors from all subcalls and takes the first
    *  parameter from each.
-   *  
+   *
    *  @return this
    *  @since  1.0
    */
@@ -189,7 +258,7 @@ hook && hook.emit('onEndSubcall', this, subcall);
         continue;
       if (agg == null) {
         agg = error;
-      } else {
+      } else if (typeof(agg) !== 'string') {
         agg.message += '; ' + (error.message || error);
         (agg.errors || (agg.errors = [])).push(error);
       }
@@ -197,28 +266,35 @@ hook && hook.emit('onEndSubcall', this, subcall);
     this.error = agg;
     delete(this.subcallErrors);
     this.params = this.subcallParams;
+    // console.log("Call.commit(): error=" + this.error + ", params=" + this.params);
+    if (this.error === 'return') {
+      if (Array.isArray(this.params))
+        this.params.splice(1);
+      // if (!('index' in this) /* root call, removes this.error */)
+      //   this.error = null;
+    }
     delete(this.subcallParams);
     delete(this.subcalls);
 hook && hook.emit('onCloseSubcalls', this);
     return this;
   };
-  
-  
+
+
   function Class() {
     this.init.apply(this, arguments);
   }
-  
+
   Class.extend = extendClass;
- 
+
   Class.prototype.toString = function() {
     return this.constructor.name + '()';
   };
-  
+
   Class.prototype.init = function() {
   };
-  
-  /*+-------------------------------------------------------------------------* 
-   |                                Statements                                | 
+
+  /*+-------------------------------------------------------------------------*
+   |                                Statements                                |
    *--------------------------------------------------------------------------*/
 
   /** The Stmt class is an abstract base class for all begin statements.
@@ -230,11 +306,11 @@ hook && hook.emit('onCloseSubcalls', this);
 hook && hook.emit('onCreateStmt', this);
   };
   Stmt.kind = ArgKind;
-  
+
   Stmt.prototype.init = function(owner) {
     this.owner = owner;
   };
-  
+
   Stmt.prototype.toString = function() {
     return this.constructor.name + '()';
   };
@@ -251,11 +327,11 @@ hook && hook.emit('onCreateStmt', this);
   /** Runs a statement with the given array of *args* where the first item is an
    *  error or undefined or null and the remaining items are parameters. The
    *  statement is run within a *context* of properties used for each field.
-   *  
+   *
    *  The *callback(args)* is called upon completion of the statement, called
    *  with a single required argument, an array or arguments object, where the
    *  first item is an optional error.
-   *  
+   *
    *  @param  args The statement input arguments ({array}, required)
    *  @param  context The context ({object}, required)
    *  @param  callback A completion callback ({function(args)}, optional)
@@ -265,7 +341,7 @@ hook && hook.emit('onCreateStmt', this);
   Stmt.prototype._run = function run(call, callback) {
     callback(args);
   };
-  
+
   /** Invokes the *func* for the given *call* context.
    *
    *  @param  call The call ({begin.Call}, required)
@@ -277,7 +353,7 @@ hook && hook.emit('onCreateStmt', this);
     if (!(call instanceof Call))
       throw new Error("Call must be a Call: " + call);
     var context = call.context;
- 
+
     if (typeof(callback) != 'function')
       throw new Error("Callback must be a function");
     if (func === STACK_MARKER)
@@ -291,7 +367,7 @@ hook && hook.emit('onCreateStmt', this);
     if (typeof(func) !== 'function') {
       return call.setParams(func), callback();
     }
-    
+
     var sync = true, replied = false;
     function replier() {
       if (replied) {
@@ -300,6 +376,10 @@ hook && hook.emit('onEndInvokeDup', call, call.stmt, func, replier, arguments);
       }
 hook && hook.emit('onEndInvoke', call, call.stmt, func, replier, arguments);
       call.stmt = call.replier = call.func = null;
+      if (replier.cancel)
+        call._cancel = replier.cancel, delete(replier.cancel);
+      if (replier.rollback)
+        call._rollback = replier.rollback, delete(replier.rollback);
       for (var key in replier)
         context[key] = replier[key];
       call.set(arguments[0], slice.call(arguments, 1));
@@ -331,96 +411,16 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
       sync = false;
     }
   };
- 
+
   Stmt.extend = extendClass;
- 
+
   /** Creates a sync version */
   Stmt.syncify = function(keys) {
     var proto = this.prototype;
     var superproto = proto.class.superclass.prototype;
 
 //     console.log("Stmt.syncify (" + this.name + ") keys: " + Object.getOwnPropertyNames(proto).join(', ') + ", super: " + Object.getOwnPropertyNames(superproto).join(', '));
- 
-    keys.forEach(function(key) {
-      var method = proto[key];
-      proto[key + 'Sync'] = function(func) {
-        if (typeof(func) === 'function') {
-          arguments[0] = function() { return func.apply(this, arguments) || null };
-        }
-        return this[key].apply(this, arguments);
-      };
-    });
-  };
- 
-  /*+-------------------------------------------------------------------------* 
-   |                              begin()..end()                              | 
-   *--------------------------------------------------------------------------*/
 
-  var Block = begin.Block = Stmt.extend(function Block(owner) {
-    Stmt.call(this, owner);
-    this.stmts = [];
-  });
-  Block.kind = ArgKind | BrkKind;
-
-  Block.prototype.begin = function() {
-    var stmt = new Block(this);
-    this.stmts.push(stmt);
-    return stmt;
-  };
-
-  Block.prototype.end = function(callback) {
-    var owner = this.owner;
-    if (owner && !(owner instanceof Block))
-      owner = owner.owner;
-    return owner;
-  };
- 
-  Block.prototype._run = function(call, callback) {
-    // hook && hook.emit('onBeginRun', call, this);
-    if (this.stmts.length == 0) {
-      // hook && hook.emit('onEndRun', call, this);
-      return callback();
-    }
-    var self = this;
-    var index = -1, count = this.stmts.length;
-    (function Block_next() {
-      var kind = !call.error ? ArgKind
-               : call.error === 'break' ? BrkKind
-               : call.error === 'return' ? RetKind
-               : ErrKind;
-      var stmt, stmtKind;
-// console.log("-Block.run(): " + index + "/" + count + ": start kind=" + kind);
-      while (index < count) {
-        stmt = self.stmts[++index], stmtKind = stmt && stmt.class.kind;
-// console.log("-Block.run(): " + index + "/" + count + ": stmt=" + stmt + ", kind=" + stmtKind + ", use?=" + !!(stmtKind & kind));
-        if (stmtKind & kind) {
-// console.log("-Block.run(): " + index + "/" + count + ": break");
-          break;
-        }
-      }
-      if (stmt) {
-// console.log("-Block.run(): " + index + "/" + count + ": run stmt=" + stmt);
-        stmt.run(call, Block_next);
-      } else {
-        if (call.error === 'break')
-          call.error = null;
-        // hook && hook.emit('onEndRun', call, this);
-        callback();
-      }
-    })();
-  };
-
-  /*+-------------------------------------------------------------------------* 
-   |                              begin()..end()                              | 
-   *--------------------------------------------------------------------------*/
-
-  var Root = Block.Root = Block.extend(function RootBlock(owner, context, options) {
-    Block.call(this, owner);
-    this.context = context;
-    this.options = options || {};
-  });
-  
-  begin.promise = function(context, options) {
     options || (options = {});
     options.promise = true;
     return new Root(null, context, options);
@@ -497,13 +497,13 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
     this.func = func;
   });
   
-  Then.prototype._run = function(call, callback) { // MARK: -run()
+  Then.prototype._run = function(call, callback) {
     this.invoke(call, this.func, function() {
       callback();
     });
   };
   
-  Block.prototype.then = function(func) { // MARK: -block.then()
+  Block.prototype.then = function(func) {
     if (func) {
       var stmt = new Then(this, func);
       this.stmts.push(stmt);
@@ -526,29 +526,29 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
     this.blocks = [new begin.Block(this)];
   });
   
-  Block.prototype.if = function(cond) { // MARK: -block.if()
+  Block.prototype.if = function(cond) {
     var stmt = new If(this, cond, false);
     this.stmts.push(stmt);
     return stmt.blocks[0];
   };
-  Block.prototype.unless = function(cond) { // MARK: -block.unless()
+  Block.prototype.unless = function(cond) {
     var stmt = new If(this, cond, true);
     this.stmts.push(stmt);
     return stmt.blocks[0];
   };
-  Block.prototype.elseif = function(cond) { // MARK: -block.elseif()
+  Block.prototype.elseif = function(cond) {
     if (!this.owner.elseif)
       throw new Error("Unexpected .elseif()");
     return this.owner.elseif(cond);
   },
-  Block.prototype.else = function() { // MARK: -block.else()
+  Block.prototype.else = function() {
     if (!this.owner.else)
       throw new Error("Unexpected .else()");
     return this.owner.else();
   };
   Block.syncify(['then']);
  
-  If.prototype._run = function(call, callback) { // MARK: -run()
+  If.prototype._run = function(call, callback) {
     // hook && hook.emit('onBeginRun', call, this);
     var self = this;
     var condArgs = call.params;
@@ -582,13 +582,13 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
       }
     })();
   };
-  If.prototype.elseif = function(cond) { // MARK: -elseif()
+  If.prototype.elseif = function(cond) {
     var block = new Block(this);
     this.conds.push(cond);
     this.blocks.push(block);
     return block;
   },
-  If.prototype.else = function() { // MARK: -else()
+  If.prototype.else = function() {
     return this.elseBlock = new Block(this);
   };
  
@@ -651,7 +651,7 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
     return false;
   };
 
-  Case.prototype._run = function(call, callback) { // MARK: -run()
+  Case.prototype._run = function(call, callback) {
     var self = this;
     var control;
     var index = 0, count = this.blocks.length;
@@ -697,7 +697,7 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
    |                             while(fn)..end()                             | 
    *--------------------------------------------------------------------------*/
 
-  var While = begin.While = Stmt.extend(function While(owner, cond, opts) { // MARK: -init()
+  var While = begin.While = Stmt.extend(function While(owner, cond, opts) {
     Stmt.call(this, owner);
     this.opts = opts || {};
     this.cond = cond;
@@ -705,26 +705,26 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
   });
   While.kind = ArgKind | BrkKind;
 
-  Block.prototype.while = function(opts, cond) { // MARK: -block.while()
+  Block.prototype.while = function(opts, cond) {
     if (arguments.length == 1) cond = opts, opts = null;
     var stmt = new While(this, cond, opts);
     this.stmts.push(stmt);
     return stmt.block;
   };
-  Block.prototype.until = function(opts, cond) { // MARK: -block.util()
+  Block.prototype.until = function(opts, cond) {
     if (arguments.length == 1) cond = opts, opts = null;
     opts || (opts = {});
     opts.negate = true;
     return this.while(cond, opts);
   };
 
-  While.prototype.init = function(owner, cond, opts) { // MARK: -init()
+  While.prototype.init = function(owner, cond, opts) {
     Stmt.call(this, owner);
     this.opts = opts || {};
     this.cond = cond;
     this.block = new Block(this);
   };
-  While.prototype._run = function(call, callback) { // MARK: -run()
+  While.prototype._run = function(call, callback) {
     var self = this;
     var cond = this.cond,
         condArgs = call.params.slice(),
@@ -757,13 +757,13 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
       });
     })();
   };
-  While.prototype.elseif = function(cond) { // MARK: -elseif()
+  While.prototype.elseif = function(cond) {
     var block = new Block(this);
     this.conds.push(cond);
     this.blocks.push(block);
     return block;
   };
-  While.prototype.else = function() { // MARK: -else()
+  While.prototype.else = function() {
     return this.elseBlock = new Block(this);
   };
   
@@ -772,7 +772,7 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
    |                             each(fn)..end()                              | 
    *--------------------------------------------------------------------------*/
 
-  var Each = begin.Each = Stmt.extend(function Each(owner, opts, list) { // MARK: -init()
+  var Each = begin.Each = Stmt.extend(function Each(owner, opts, list) {
     Stmt.call(this, owner);
     this.opts = opts || {};
     this.list = list;
@@ -780,14 +780,14 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
   });
   Each.kind = ArgKind | BrkKind;
 
-  Block.prototype.each = function(opts, list) { // MARK: -block.each()
+  Block.prototype.each = function(opts, list) {
     if (arguments.length == 1) list = opts, opts = null;
     var stmt = new Each(this, opts, list);
     this.stmts.push(stmt);
     return stmt.block;
   };
 
-  Each.prototype._run = function(call, callback) { // MARK: -run()
+  Each.prototype._run = function(call, callback) {
     var self = this, block = this.block;
     var workers = Math.max(0, this.opts.workers) || Infinity;
     
@@ -825,7 +825,7 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
     });
   };
   
-  Each.prototype.items = function(call, callback) { // MARK: -items()
+  Each.prototype.items = function(call, callback) {
     switch (typeof(this.list)) {
       case 'function':
         this.invoke(call, this.list, callback);
@@ -837,7 +837,7 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
         return callback();
     }
   };
-  Each.prototype.coerce = function(items) { // MARK: -coerce()
+  Each.prototype.coerce = function(items) {
     var values = [], keys = [];
     switch (typeof(items)) {
       case 'object':
@@ -872,7 +872,7 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
     this.block = new Block(this);
   });
   
-  Block.prototype.split = function() { // MARK: -block.split()
+  Block.prototype.split = function() {
     var stmt = new Split(this);
     stmt.owner = this;
     this.stmts.push(stmt);
@@ -897,6 +897,8 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
     }
   };
 
+  Block.prototype.parallel = Block.prototype.split;
+
   /*+-------------------------------------------------------------------------* 
    |                            stream(fn)..end()                             | 
    *--------------------------------------------------------------------------*/
@@ -909,7 +911,7 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
     this.block = new Block(this);
   });
 
-  Block.prototype.stream = function(opts, stream) { // MARK: -block.stream()
+  Block.prototype.stream = function(opts, stream) {
     var stmt;
     switch (arguments.length) {
       case 0: stream = STACK_MARKER, opts = null; break;
@@ -921,7 +923,7 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
     return stmt.block;
   };
   
-  Stream.prototype._run = function(call, callback) { // MARK: -run()
+  Stream.prototype._run = function(call, callback) {
     var self = this, block = this.block;
     var stop = false, inCount = 0, outCount = 0;
     var oldArgs = call.params.slice();
@@ -1000,7 +1002,7 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
     this.timeout = timeout || 0;
   });
 
-  Block.prototype.wait = function(timeout) { // MARK: -block.split()
+  Block.prototype.wait = function(timeout) {
     var stmt = new Wait(this, timeout);
     stmt.owner = this;
     this.stmts.push(stmt);
@@ -1029,7 +1031,7 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
   });
   Retry.kind = ArgKind | BrkKind;
   
-  Block.prototype.retry = function(count) { // MARK: -block.split()
+  Block.prototype.retry = function(count) {
     var stmt = new Retry(this, count);
     stmt.owner = this;
     this.stmts.push(stmt);
@@ -1059,7 +1061,7 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
    |                        catch(fn) | catch()..end()                        | 
    *--------------------------------------------------------------------------*/
 
-  var Catch = begin.Catch = Stmt.extend(function Catch(owner, func) { // MARK: -init()
+  var Catch = begin.Catch = Stmt.extend(function Catch(owner, func) {
     Stmt.call(this, owner);
     this.func = func;
     if (!this.func)
@@ -1068,13 +1070,13 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
 
   Catch.kind = ErrKind | BrkKind;
   
-  Block.prototype.catch = function(func) { // MARK: -block.catch()
+  Block.prototype.catch = function(func) {
     var stmt = new Catch(this, func);
     this.stmts.push(stmt);
     return stmt.block || this;
   };
 
-  Catch.prototype._run = function(call, callback) { // MARK: -run()
+  Catch.prototype._run = function(call, callback) {
     call.params.splice(0, 0, call.error), call.error = null;
     
     if (this.func) {
@@ -1087,10 +1089,92 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
     
   /*+-------------------------------------------------------------------------* 
    |                      finally(fn) | finally()..end()                      | 
+  };
+
+  Wait.prototype._run = function(call, callback) {
+    setTimeout(function() {
+      callback();
+    }, this.timeout);
+  };
+
+
+  /*+-------------------------------------------------------------------------*
+   |                             retry(n)..end()                              |
+   *--------------------------------------------------------------------------*/
+
+  /** The Retry class defines a block-type
+   *
+   *  @MARK:  - Retry
+   */
+  var Retry = begin.Retry = Stmt.extend(function Retry(owner, count) {
+    Stmt.call(this, owner);
+    this.block = new Block(this);
+    this.count = count;
+  });
+  Retry.kind = ArgKind | BrkKind;
+
+  Block.prototype.retry = function(count) { // MARK: -block.split()
+    var stmt = new Retry(this, count);
+    stmt.owner = this;
+    this.stmts.push(stmt);
+    return stmt.block;
+  };
+
+  Retry.prototype._run = function(call, callback) {
+    var block = this.block, index = 0, count = this.count;
+    function again() {
+      if (index++ >= this.count)
+        callback();
+      block.run(call, function(err) {
+        if (!err)
+          return callback && callback();
+      });
+    }
+    again();
+  };
+
+  /*
+   * This each statement above could be rewritten as any one the following are
+   * functionally equivalent. They all create an each statement which iterates
+   * over an array.
+   */
+
+  /*+-------------------------------------------------------------------------*
+   |                        catch(fn) | catch()..end()                        |
+   *--------------------------------------------------------------------------*/
+
+  var Catch = begin.Catch = Stmt.extend(function Catch(owner, func) { // MARK: -init()
+    Stmt.call(this, owner);
+    this.func = func;
+    if (!this.func)
+      this.block = new Block(this);
+  });
+
+  Catch.kind = ErrKind | BrkKind;
+
+  Block.prototype.catch = function(func) { // MARK: -block.catch()
+    var stmt = new Catch(this, func);
+    this.stmts.push(stmt);
+    return stmt.block || this;
+  };
+
+  Catch.prototype._run = function(call, callback) { // MARK: -run()
+    call.params.splice(0, 0, call.error), call.error = null;
+
+    if (this.func) {
+      this.invoke(call, this.func, callback);
+    } else if (this.block) {
+//      call.unshift(call.error), call.error = null;
+      this.block.run(call, callback);
+    }
+  };
+
+  /*+-------------------------------------------------------------------------*
+   |                      finally(fn) | finally()..end()                      |
    *--------------------------------------------------------------------------*/
 
   /** The Stmt.Finally class defines a block-type
-   *  
+   *
    *  @MARK:  - Finally
    */
   var Finally = begin.Finally = Stmt.extend(function Finally(owner, func) {
@@ -1100,8 +1184,8 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
       this.block = new Block(this);
   });
 
-  Finally.kind = AllKind | BrkKind;
-  
+  Finally.kind = AllKind;
+
   Block.prototype.finally = function(func) {
     var stmt = new Finally(this, func);
     this.stmts.push(stmt);
@@ -1116,9 +1200,9 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
       this.block.run(call, callback);
     }
   };
-    
+
   /** The Get class defines a block-type
-   *  
+   *
    *  @MARK:  - Get
    */
   var Get = begin.Get = Stmt.extend(function Get(owner, keys) {
@@ -1128,88 +1212,6 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
 
   Block.prototype.get = function() {
     var stmt = new Get(this, slice.call(arguments, 0));
-    this.stmts.push(stmt);
-    return this;
-  };
-
-  Get.prototype._run = function(call, callback) {
-    for (var i = 0, ic = this.keys.length; i < ic; i++) {
-      var value = call.context[this.keys[i]];
-      call.params.splice(i, 0, value);
-    }
-    callback();
-  };
-
-  /** The Set class defines a block-type
-   *  
-   *  @MARK:  - Set
-   */
-  var Set = begin.Set = Stmt.extend(function Set(owner, keys) {
-    Stmt.call(this, owner);
-    this.keys = keys;
-  });
-
-  Block.prototype.set = function(key) {
-    var stmt = new Set(this, slice.call(arguments, 0));
-    this.stmts.push(stmt);
-    return this;
-  };
-
-  Set.prototype._run = function(call, callback) {
-    for (var i = 0, ic = this.keys.length; i < ic; i++) {
-      call.context[this.keys[i]] = call.params[i];
-    }
-    callback();
-  };
-
-  /*+-------------------------------------------------------------------------* 
-   |                          Working with Promises                           | 
-   *--------------------------------------------------------------------------*/
-
-  /** Returns whether *value* is a promise.
-   *
-   *  @since  1.0
-   */
-  function isThenable(value) {
-    var type = typeof(value);
-    return value != null && ('object' == type || 'function' == type) && typeof(value.then) === 'function';
-  }
-
-  /** The begin.Promise class provides a Promises/A+ implementation with a
-   *  minimal memory and CPU footprint.
-   *  
-   *  @since  1.0
-   *  @MARK:  - begin.Promise
-   */
-  var Promise = begin.Promise = function Promise(executor) {
-    // this._state = 0;
-    if (executor) {
-      try {
-        executor(this._fulfill.bind(this), this._reject.bind(this));
-      } catch (error) {
-        this._reject(error);
-      }
-    }
-  };
-  Promise.PENDING = 0;
-  Promise.REJECTED = 1;
-  Promise.FULFILLED = 2;
-  Promise.RESOLVED = Promise.REJECTED & Promise.FULFILLED;
-
-  Promise.prototype._call = function(next) {
-    var key, handler, param, promise = next._promise;
-    switch (this._state) {
-      case 1: key = '_reject', param = this._error; break;
-      case 2: key = '_fulfill', param = this._value; break;
-      default: throw new Error("Must be resolved");
-    }
-    if (handler = next[key]) {
-      try {
-        if (next._called) throw new Error("Next already called");
-        next._called = true;
-        var value = handler(param);
-        if (value && typeof(value.then) === 'function') {
-          try {
             value.then(promise._fulfill.bind(promise), promise._reject.bind(promise));
           } catch (error) {
             promise._reject(error);
@@ -1322,34 +1324,8 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
       (hook = next) || Hook.uninstrument();
   };
   Hook.instrument = function() {
-//     for (var key in begin) {
-//       var value = begin[key], run;
-//       if (typeof(value) != 'function' || key < 'A' || 'Z' < key)
-//         continue;
-//       var proto = value.prototype;
-//       if (run = proto.run) {
-//         proto._run = run;
-//         console.log('Hook.instrument: instrumenting method ' + key + '.run()');
-//         proto.run = function(call, callback) {
-//           var self = this;
-//           hook.emit('onBeginRun', call, this);
-//           this._run(call, function() {
-//             hook.emit('onEndRun', call, self);
-//             callback();
-//           });
-//         };
-//       }
-//     }
   };
   Hook.uninstrument = function() {
-//     for (var key in begin) {
-//       var value = begin[key], run;
-//       if (typeof(value) != 'function' || key < 'A' || 'Z' < key)
-//         continue;
-//       var proto = value.prototype;
-//       proto.run = proto._run;
-//       delete(proto._run);
-//     }
   };
   Hook.prototype.emit = function(event, args) {
     if (!Array.isArray(args))
@@ -1443,6 +1419,18 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
       root.begin = prev;
       return begin;
     };
+  }
+
+  if (typeof(process) -== 'object') {
+    /* If running under node, include 'begin-trace.js' if BEGIN_TRACE env is 
+     * set. In the browser, simply include 'begin-trace.js'. */
+    if ('BEGIN_TRACE' in process.env) {
+      try {
+        require('./begin-trace.js');
+      } catch (err) {
+        require('./begin-trace.js');
+      }
+    }
   }
   
 })(this);

@@ -17,14 +17,14 @@ CalcServer.prototype.start = function() {
       this.apply(this, arguments);
     }).
   end();
-  
+
   var self = this;
-  
+
   return self.__start || (self.__start = begin().
     then(self.__stop).
     finally.sync(function() {
       self.__start = null;
-      
+
     }).
   end());
 };

@@ -51,4 +51,3 @@ begin().
 end(function() {
   process.exit(0);
 });
-

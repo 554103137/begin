@@ -2,7 +2,7 @@
   "name": "begin",
   "version": "0.2.1",
   "description": "Asynchronous flow control for node.js and browsers",
-  "main": "./lib/begin.js",
+  "main": "./begin.js",
   "scripts": {
     "test": "mocha --spec"
   },

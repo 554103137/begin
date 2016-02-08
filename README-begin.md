@@ -1,16 +1,16 @@
 # begin
 
-**begin** is a small yet powerful fluent asynchronous library. 
+**begin** is a small yet powerful fluent asynchronous library.
 
     var begin = require('begin');
     var fs = require('fs');
     var path = require('path');
-    
+
     var dir = '/var/log';
-    
+
     begin().
       each(function() { fs.readdir(dir, this) }).
-        then(function(filename, index) { 
+        then(function(filename, index) {
           this.filepath = path.join(dir, filename);
           fs.stat(this.filepath, this);
         }).
@@ -28,7 +28,7 @@
         return null;
       }).
     end();
-    
+
 ## Features
 
 - `begin()`...`end()` blocks
@@ -42,10 +42,22 @@
 - Multiple Call
 
 
+> [begin](http://www.google.com/) v1.2 ▸ [case]() ▸ **profile/create**
+
+##### Examples
+
+```js
+function test() {
+  hello("Test");
+}
+```
+
+#### Parameters
+
 ### case()..when()..else()..end()
 
 **case(** [*control*] **)**.. (**when(** [*func*] **)**.. | )* [**else()**..] **end()** &mdash; Hello  
-Creates 
+Creates
 
 - **when(** [*func*] **)**
 - **when(** *value* [, *value*]* **)**
@@ -64,8 +76,8 @@ Test
           then(function(value) { throw new Error("Unsupported input: " + value); }).
       end().
     end();
-  
-The *control* variable may be given as a value, as a promise to the value, as a function returning the value synchronously or asynchronously or via a promise. If no *control* variable is given, then the current value on the stack is given. 
+
+The *control* variable may be given as a value, as a promise to the value, as a function returning the value synchronously or asynchronously or via a promise. If no *control* variable is given, then the current value on the stack is given.
 
 
 
@@ -94,14 +106,14 @@ The *control* variable may be given as a value, as a promise to the value, as a 
       end().
       then(function(results) { console.log(results); return null; });
     end();
-    
+
     begin().
       each([0, 1, 2]).
         then(function(value, index) { return { value:value, index:index } }).
       end().
       then(function(results) { console.log(results); return null; });
     end();
-    
+
 ##### Kinds of Values
 
 The `each()`..`end()` statement iterates over the following kinds values:
@@ -117,17 +129,17 @@ The `each()`..`end()` statement iterates over the following kinds values:
 Values may be provided to `each()` in one of the following ways
 
 - `each(function() {..})` calls the function to provide the value either directly using return of a non-undefined value or indirectly through a call to `this(error, values)`
-- `each(promise)` waits for the promise to resolve 
+- `each(promise)` waits for the promise to resolve
 - `each(values)` literal values are may be provided
 - `each()` uses the result of the previous statement
 
-#### Context 
+#### Context
 
 Each iteration gets a copy of  
 
-#### Result 
+#### Result
 
-The result of each iteration is returned an array to the next statement following the each block. 
+The result of each iteration is returned an array to the next statement following the each block.
 
     begin()
       each([1, 2, 3])
@@ -139,10 +151,10 @@ The result of each iteration is returned an array to the next statement followin
       }).
     end();
 
-would output `[10, 20, 30]`. Note that only the first value is used in the result. 
+would output `[10, 20, 30]`. Note that only the first value is used in the result.
 
 
-If `opts` is given, 
+If `opts` is given,
 
 <table>
 <tr><td style="vertical-align:top"><b>workers</b></td>
@@ -157,13 +169,13 @@ If `opts` is given,
     var promise = begin.promise().
       then(function() { setTimeout(this, 100, 'Tim') }).
     end();
-    
+
     promise.then(function(name) {
       console.log("Hello, " + name + "!");  // Outputs: "Hello, Tim!"
     });
 
-Begin can be used to create promises. 
-    
+Begin can be used to create promises.
+
 #### Working with Promises
 
     begin().
@@ -179,46 +191,5 @@ Begin can be used to create promises.
         throw error;
       }).
     end();
-    
-Begin statements plays nice with promises. Any function can return a promise and **begin** will wait for the promise to fulfill or reject before proceeding. 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Begin statements plays nice with promises. Any function can return a promise and **begin** will wait for the promise to fulfill or reject before proceeding.

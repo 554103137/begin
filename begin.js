@@ -1141,6 +1141,15 @@ hook && hook.emit('onBeginInvoke', call, this, func, replier);
           callback();
         }
       });
+      stream.once(closeEvent, function() {
+// console.log("-Stream.run(): +" + inCount + "/-" + outCount + " stopped=" + stop + ", close called");
+        if (stop) return;
+        stop = true;
+        if (outCount == inCount) {
+          call.commit();
+          callback();
+        }
+      });
     });
 
     function done() {

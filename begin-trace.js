@@ -1,14 +1,12 @@
 /*
  * lib/begin-trace.js
- *
- * @MARK: Module
  */
 
 (function(root) {
   'use strict';
- 
+
   var begin = root.begin || require('./begin.js');
- 
+
   var beginMark = typeof(process) !== 'undefined'
       ? function beginMark() { return process.hrtime() }
       : function beginMark() { return Date.now() };
@@ -19,7 +17,7 @@
 
   var Trace = begin.Trace = begin.Hook.extend(function Trace() {
   });
- 
+
   /** Returns a 2-tuple [file, line] of the first non-library stack frame.
    *
    *  @return a 2-tuple [file, line]
@@ -34,7 +32,7 @@
       Error.captureStackTrace(error, firstNonLibFrame);
       var stack = error.stack;
       Error.stackTraceLimit = l, Error.prepareStackTrace = p;
-   
+
       for (var i = 0, ic = stack.length; i < ic; i++) {
         var site = stack[i];
         var filename = site.getFileName();
@@ -66,13 +64,13 @@
   Trace.prototype.onCreateStmt = function(stmt) {
     // console.log("\x1b[33monCreateStmt\x1b[0m stmt=" + stmt);
     // console.log(new Error().stack);
- 
+
     var site = firstNonLibFrame();
     stmt.__file = site[0];
     stmt.__line = site[1];
     // console.log("Created stmt=" + stmt + ", at " + site.getFileName() + ":" + site.getLineNumber());
   };
- 
+
   /** Observes that a call is beginning a run.
    *
    *  @param  call The call ({begin.Call}, required)
@@ -82,7 +80,7 @@
     call._startTime = beginMark();
     // console.log("\x1b[33monBeginCall\x1b[0m call=", call);
   };
-  
+
   /** Observes that a call is ending a run.
    *
    *  @param  call The call ({begin.Call}, required)
@@ -93,28 +91,28 @@
     // console.log("\x1b[33monEndCall\x1b[0m time=" + elapsed.toFixed(3) + " ms");
     // console.log("\x1b[33monEndCall\x1b[0m time=" + elapsed.toFixed(3) + " ms, call=", call);
   };
-  
+
   Trace.prototype.onOpenSubcalls = function(call) {
     // console.log("\x1b[33monOpenSubcalls\x1b[0m");
   };
-  
+
   Trace.prototype.onCloseSubcalls = function(call) {
     // console.log("\x1b[33monCloseSubcalls\x1b[0m");
   };
-  
+
   Trace.prototype.onBeginSubcall = function(call, subcall) {
     // console.log("\x1b[33monBeginSubcall\x1b[0m");
   };
-  
+
   Trace.prototype.onEndSubcall = function(call, subcall) {
     // console.log("\x1b[33monEndSubcall\x1b[0m");
   };
- 
+
   Trace.prototype.onBeginInvoke = function(call, stmt, func, replier) {
     // console.log("\x1b[33monBeginInvoke\x1b[0m call=" + call + ", stmt=" + stmt + ", func=" + func);
     replier.__callTime = beginMark();
   };
-  
+
   Trace.prototype.onEndInvoke = function(call, stmt, func, replier, args) {
     var e = endMark(replier.__callTime);
     delete(replier.__callTime);
@@ -128,7 +126,7 @@
   Trace.prototype.onEndInvokeDup = function(call, stmt, func) {
     // console.log("\x1b[33monEndInvokeDup\x1b[0m");
   };
- 
+
 
   if (typeof(module) !== 'undefined')
     module.exports = Trace;

@@ -1,6 +1,6 @@
 /*
  * test/begin-block-test.js
- * 
+ *
  * @see   http://visionmedia.github.com/mocha/
  * @see   http://nodejs.org/docs/v0.4.8/api/assert.html
  */
@@ -15,7 +15,7 @@ var events = require('events');
 describe("begin.Stream", function() {
 
   describe("Finding streams", function() {
-  
+
     it("supports taking stream from the stream function", function(done) {
       begin().
         stream(function() {
@@ -30,7 +30,7 @@ describe("begin.Stream", function() {
         end().
       end(utils.checkEqual(done, [[1]]));
     });
-  
+
     it("supports taking stream from the stack", function(done) {
       begin().
         then(function() {
@@ -46,7 +46,7 @@ describe("begin.Stream", function() {
         end().
       end(utils.checkEqual(done, [[1]]));
     });
-  
+
     it("supports taking stream deferred", function(done) {
       begin().
         stream(function() {
@@ -61,31 +61,34 @@ describe("begin.Stream", function() {
         end().
       end(utils.checkEqual(done, [[1]]));
     });
-    
+
   });
 
   describe("Working with streams", function() {
-  
+    this.timeout(60e3);
+
     it("works with a modeled emitter", function(done) {
       begin().
         stream(function() {
           var interval = 10, timeout = 100;
           var expire = Date.now() + timeout;
-          
+
           var count = 0;
           var stream = new events.EventEmitter();
           var pollTimer = setInterval(function() {
+            // console.log("data");
             stream.emit('data', count++);
             if (Date.now() >= expire) {
               // console.log("Closing: " + (Date.now() - expire) + " overage");
               clearInterval(pollTimer), pollTimer = null;
               stream.emit('close');
+              // console.log("closed");
             }
           }, interval);
           return stream;
         }).
           then(function(i) {
-// console.log("Perform iteration: " + i);
+//console.log("Perform iteration: " + i);
             return i;
           }).
         end().
@@ -96,13 +99,13 @@ describe("begin.Stream", function() {
         }).
       end(utils.checkEqual(done, ['yes!']));
     });
-    
+
     it("works with a modeled error emitter", function(done) {
       begin().
         stream(function() {
           var interval = 10, timeout = 100;
           var expire = Date.now() + timeout;
-          
+
           var count = 0;
           var stream = new events.EventEmitter();
           var pollTimer = setInterval(function() {
@@ -128,8 +131,7 @@ describe("begin.Stream", function() {
         }).
       end(utils.checkEqual(done, ['yes!']));
     });
-    
-  });
-  
-});
 
+  });
+
+});

@@ -1,6 +1,6 @@
 /*
  * test/begin-each-test.js
- * 
+ *
  * @see   http://visionmedia.github.com/mocha/
  * @see   http://nodejs.org/docs/v0.4.8/api/assert.html
  */
@@ -14,15 +14,15 @@ var chai = typeof(chai) !== 'undefined' ? chai : require('chai'),
 describe("begin.Each", function() {
 
   describe("API", function() {
-  
+
     it("should define begin.Each", function() {
       assert.ok(begin.Each);
     });
-    
+
   });
-  
+
   describe("Each basics", function() {
-    
+
     it("should work with sync literal array", function(done) {
       var x = [];
       begin().
@@ -50,7 +50,7 @@ describe("begin.Each", function() {
         then(function(v) { return v }).
       end(utils.checkEqual(done, [[1, 2, 3]]));
     });
-    
+
     it("should work with sync literal object with values", function(done) {
       var x = [];
       begin().
@@ -78,7 +78,7 @@ describe("begin.Each", function() {
         then(function(v) { return v }).
       end(utils.checkEqual(done, [[1, 2, 3]]));
     });
-    
+
     it("should work with sync literal object with keys", function(done) {
       var x = [];
       begin().
@@ -106,11 +106,11 @@ describe("begin.Each", function() {
         then(function(v) { return v }).
       end(utils.checkEqual(done, [['a', 'b', 'c']]));
     });
-    
+
   });
-  
+
   describe("Each edge cases", function() {
-    
+
     it("should work with no args", function(done) {
       var x = [];
       begin().
@@ -135,11 +135,11 @@ describe("begin.Each", function() {
         end().
       end(utils.checkEqual(done, [[]]));
     });
-    
+
   });
-  
+
   describe("Iterating with numbers", function() {
-    
+
     it("should work with number arg", function(done) {
       var x = [];
       begin().
@@ -194,11 +194,11 @@ describe("begin.Each", function() {
         then(function() { return x }).
       end(utils.checkEqual(done, [[{i:0,k:0},{i:1,k:1},{i:2,k:2}]]));
     });
-    
+
   });
-  
+
   describe("Using workers option {workers:..}", function() {
-  
+
     function testWorkers(count, workers, done) {
       var list = [], wait = 25;
       begin().
@@ -226,7 +226,7 @@ describe("begin.Each", function() {
         }).
       end(done);
     }
-    
+
     it("should work with 1 worker", function(done) {
       this.timeout(10e3);
       testWorkers(50, 1, done);
@@ -247,16 +247,33 @@ describe("begin.Each", function() {
       this.timeout(10e3);
       testWorkers(50, 0, done);
     });
-    
+
+    it.only("should work with workers and throttle", function(done) {
+      var throttle = require('../throttle.js');
+
+      this.timeout(20e3);
+      var times = [];
+      begin().
+        each([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).
+          then(function(index) {
+            return throttle(2, 2000, times);
+          }).
+          thenSync(function(index) {
+            console.log("index " + index);
+          }).
+        end().
+      end(done)
+    });
+
   });
-  
+
   describe("Performance testing", function() {
     this.timeout(10e3);
-    
+
     var letters = [];
     for (var i = 0; i < 26; i++)
       letters.push(String.fromCharCode('a'.charCodeAt(0) + i));
-      
+
     it("should compare to direct", function(done) {
       var start = utils.beginStopwatch();
       var text = [];
@@ -271,7 +288,7 @@ describe("begin.Each", function() {
       console.log("direct: \x1b[32m" + text.length + " its @ " + time.toFixed(3) + " ms " + (time/text.length*1e3).toFixed(3) + " µs/it\x1b[0m");
       done();
     });
-    
+
     it("should compare to by-hand", function(done) {
       var start = utils.beginStopwatch();
       var text = [];
@@ -286,7 +303,7 @@ describe("begin.Each", function() {
       console.log("coded:  \x1b[32m" + text.length + " its @ " + time.toFixed(3) + " ms " + (time/text.length*1e3).toFixed(3) + " µs/it\x1b[0m");
       done();
     });
-    
+
     it("should compare to version 1", function(done) {
       var start = utils.beginStopwatch();
       var text = [];
@@ -314,7 +331,7 @@ describe("begin.Each", function() {
         }).
       end(done);
     });
-    
+
     it("should compare to version 2", function(done) {
       var start = utils.beginStopwatch();
       var text = [];
@@ -342,8 +359,7 @@ describe("begin.Each", function() {
         }).
       end(done);
     });
-    
+
   });
 
 });
-
